@@ -104,15 +104,21 @@ ocsd_datapath_resp_t TrcPktDecodeEtmV4I::processPacket()
             if(m_curr_packet_in->getType() == ETM4_PKT_I_TRACE_INFO)
             {
                 // do the first trace info packet after sync.
-                ocsd_err_t tierr = doTraceInfoPacket();
-                if (tierr == OCSD_ERR_BAD_DECODE_PKT)
+                err = doTraceInfoPacket();
+                if (err == OCSD_ERR_BAD_DECODE_PKT)
                 {
                     // corrupt TRACE_INFO (speculation depth above TRCIDR8.MAXSPEC):
-                    // drop it and wait for the next sync rather than fail the decode.
+                    // drop it and wait for the next sync rather than fail the decode,
+                    // unless operational policy dictates otherwise.
+                    if (getComponentOpMode() & OCSD_OPFLG_PKTDEC_HALT_BAD_PKTS)
+                        resp = OCSD_RESP_FATAL_INVALID_DATA;
+                    else if (getComponentOpMode() & OCSD_OPFLG_PKTDEC_ERROR_BAD_PKTS)
+                        resp = OCSD_RESP_ERR_CONT;
+
                     m_curr_state = WAIT_SYNC;
                 }
-                else if (tierr != OCSD_OK)
-                    resp = OCSD_RESP_FATAL_SYS_ERR;
+                else if (err != OCSD_OK)
+                    resp = OCSD_RESP_FATAL_INVALID_DATA;
                 else
                 {
                     m_curr_state = DECODE_PKTS;
